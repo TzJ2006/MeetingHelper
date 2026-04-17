@@ -1,8 +1,8 @@
 ecl_version: "1.0"
 feature: "meeting-helper"
-status: completed
+status: phase-10-iteration-4
 created: 2026-04-09
-updated: 2026-04-09
+updated: 2026-04-10
 
 decisions:
   - id: DEC-001
@@ -415,3 +415,139 @@ iteration_3:
     - "README.md — updated repo URL, added Windows health check, updated project structure"
     - "docs/tutorial.md — updated repo URL"
     - ".gitignore — expanded coverage"
+
+iteration_4:
+  trigger: "User requested: real-time transcript overlay + window-specific recording"
+  decisions:
+    - id: DEC-010
+      date: 2026-04-10
+      decision: "PyObjC floating overlay for real-time subtitle display"
+      context: "Single-file Python script using AppKit — native transparency, click-through, always-on-top. Polls Screenpipe REST API every 5s."
+    - id: DEC-011
+      date: 2026-04-10
+      decision: "Screenpipe --transcription-mode realtime for low-latency transcription"
+      context: "Reduces latency from ~30s (batch) to ~5-10s. Independent of meeting detection (smart mode)."
+    - id: DEC-012
+      date: 2026-04-10
+      decision: "Screenpipe --included-windows for window-level screen capture filtering"
+      context: "Contains matching on window titles. Default: Zoom + Microsoft Teams. Audio unaffected."
+    - id: DEC-013
+      date: 2026-04-10
+      decision: "start.sh as single canonical start script; start-screenpipe*.sh deprecated"
+      context: "Three inconsistent start scripts existed. Consolidated to one with configurable variables."
+  new_requirements:
+    - id: REQ-012
+      text: "Floating subtitle overlay window showing real-time transcript"
+      status: implemented
+      confidence: 0.9
+      acceptance_criteria:
+        - "Semi-transparent always-on-top window at bottom of screen"
+        - "Click-through (mouse events pass to underlying app)"
+        - "Shows speaker + timestamp + transcript text"
+        - "Text appears within ~10s of speech (requires realtime transcription mode)"
+        - "Cmd+Shift+S toggles visibility"
+        - "Ctrl+C exits cleanly"
+        - "Connection status indicator when Screenpipe is unreachable"
+      dependencies: [REQ-013]
+      implementation: "scripts/live-subtitle.py"
+    - id: REQ-013
+      text: "Low-latency realtime transcription mode"
+      status: implemented
+      confidence: 0.85
+      acceptance_criteria:
+        - "Screenpipe starts with --transcription-mode realtime"
+        - "Transcripts appear in API within ~10s of speech"
+        - "Meeting detection (list-meetings) still works"
+      risks:
+        - "Realtime mode vs smart transcription mode compatibility — needs runtime verification"
+      implementation: "scripts/start.sh (CMD array with --transcription-mode)"
+    - id: REQ-014
+      text: "Window-specific screen recording (only Zoom/Teams)"
+      status: implemented
+      confidence: 0.95
+      acceptance_criteria:
+        - "Screenpipe starts with --included-windows for configured apps"
+        - "Only matching windows appear in OCR search results"
+        - "Audio recording is unaffected (still captures all mic + system audio)"
+        - "Window list is configurable via INCLUDED_WINDOWS variable in start.sh"
+      implementation: "scripts/start.sh (INCLUDED_WINDOWS array)"
+  new_features:
+    - id: FEAT-006
+      name: "PyObjC Subtitle Overlay"
+      parent: [REQ-012]
+      modules: [MOD-006]
+      dependencies: [FEAT-007]
+      complexity: medium
+    - id: FEAT-007
+      name: "Realtime Transcription Configuration"
+      parent: [REQ-013]
+      modules: [MOD-007]
+      dependencies: []
+      complexity: small
+    - id: FEAT-008
+      name: "Window Capture Filtering"
+      parent: [REQ-014]
+      modules: [MOD-008]
+      dependencies: []
+      complexity: small
+  new_modules:
+    - id: MOD-006
+      name: "Subtitle overlay application"
+      parent: FEAT-006
+      files: ["scripts/live-subtitle.py"]
+    - id: MOD-007
+      name: "Realtime transcription config"
+      parent: FEAT-007
+      files: ["scripts/start.sh"]
+    - id: MOD-008
+      name: "Window filtering config"
+      parent: FEAT-008
+      files: ["scripts/start.sh"]
+  adversarial_findings:
+    - id: FIND-010
+      severity: critical
+      target: REQ-012
+      issue: "REST API response schema assumed, never verified"
+      resolution: "Deferred — verify with curl on first run; error handling in overlay"
+      status: accepted-with-mitigation
+    - id: FIND-011
+      severity: critical
+      target: REQ-013
+      issue: "Realtime mode may conflict with smart transcription / meeting detection"
+      resolution: "CLI confirms realtime/batch are transcription scheduling modes, independent of meeting detection. Needs runtime verification."
+      status: accepted-with-mitigation
+    - id: FIND-012
+      severity: high
+      target: all
+      issue: "Three inconsistent start scripts"
+      resolution: "DEC-013: start.sh is canonical script"
+      status: resolved
+    - id: FIND-013
+      severity: medium
+      target: REQ-012
+      issue: "Subtitle window is persistent privacy surface"
+      resolution: "Cmd+Shift+S toggle; documented in start.sh output"
+      status: resolved
+  files_modified:
+    - "scripts/start.sh — added realtime mode, window filtering, subtitle auto-start"
+    - "scripts/stop.sh — added subtitle PID cleanup"
+    - "scripts/live-subtitle.py — NEW: PyObjC floating subtitle overlay"
+  probes:
+    - id: PROBE-006
+      target: REQ-014
+      type: assumption
+      question: "Does --included-windows CLI flag exist?"
+      verdict: feasible
+      evidence: "screenpipe record --help confirms: --included-windows <TITLE>, contains matching"
+    - id: PROBE-007
+      target: REQ-013
+      type: assumption
+      question: "Does --transcription-mode realtime exist?"
+      verdict: feasible
+      evidence: "screenpipe record --help confirms: realtime | batch, default batch"
+    - id: PROBE-008
+      target: REQ-012
+      type: assumption
+      question: "Is Python3 + PyObjC available?"
+      verdict: feasible
+      evidence: "Python 3.12.7, AppKit import successful"
