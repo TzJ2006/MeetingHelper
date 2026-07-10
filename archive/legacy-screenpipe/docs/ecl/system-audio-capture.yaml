@@ -116,8 +116,8 @@ requirements:
     status: verified
     confidence: 0.95
     acceptance_criteria:
-      - "Mic: ~/.meeting-helper/transcripts/YYYY-MM-DD.txt (unchanged)"
-      - "System: ~/.meeting-helper/transcripts/YYYY-MM-DD-sys.txt"
+      - "Mic: transcripts/YYYY-MM-DD.txt (unchanged)"
+      - "System: transcripts/YYYY-MM-DD-sys.txt"
       - "Each has its own file handle and date-rollover tracking"
       - "Single-source mode writes to appropriate file only"
     risks: []
@@ -269,12 +269,12 @@ data_flows:
   mic_capture:
     input: "MacBook Pro Microphone (default input device)"
     transform: "sd.InputStream → ASR backend → callback(text, is_final)"
-    store: "~/.meeting-helper/transcripts/YYYY-MM-DD.txt"
+    store: "transcripts/YYYY-MM-DD.txt"
     output: "Subtitle window MIC region"
   system_capture:
     input: "BlackHole 2ch (system audio via Multi-Output Device)"
     transform: "sd.InputStream(device=blackhole_id) → ASR backend → callback(text, is_final)"
-    store: "~/.meeting-helper/transcripts/YYYY-MM-DD-sys.txt"
+    store: "transcripts/YYYY-MM-DD-sys.txt"
     output: "Subtitle window SYS region"
 
 adversarial_findings:
